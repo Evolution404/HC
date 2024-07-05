@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <!-- import CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+  <!-- import Vue before Element -->
+  <script src="https://unpkg.com/vue@2/dist/vue.js"></script>
+  <!-- import JavaScript -->
+  <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+  <title>弧垂验收计算器</title>
+</head>
+<body>
+  <div id="app">
+    <el-steps :active="active" finish-status="success">
+      <el-step title="验收信息录入"></el-step>
+      <el-step title="实测数据录入"></el-step>
+      <el-step title="验收分析报告"></el-step>
+    </el-steps>
+
+
+    <div v-if="active === 0">
+      <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mo>任意档距弧垂公式：</mo><mi>f</mi><mo>=</mo><mfrac><mrow><msub><mi>f</mi><mrow><mn>100</mn></mrow></msub><mo>×</mo><msup><mi>L</mi><mn>2</mn></msup><mo>×</mo><msup><mn>10</mn><mrow><mo>−</mo><mn>4</mn></mrow></msup><mo stretchy="false">(</mo><mn>1</mn><mo>+</mo><mfrac><mn>4</mn><mn>3</mn></mfrac><msubsup><mi>f</mi><mrow><mn>100</mn></mrow><mn>2</mn></msubsup><mo>×</mo><msup><mi>L</mi><mn>2</mn></msup><mo>×</mo><msup><mn>10</mn><mrow><mo>−</mo><mn>8</mn></mrow></msup><mo stretchy="false">)</mo></mrow><mrow><mi>c</mi><mi>o</mi><mi>s</mi><mi>B</mi></mrow></mfrac></math>
+      <el-statistic
+            style="padding-top: 20px;"
+            group-separator=""
+            :precision="3"
+            :value="designHC"
+            title="设计弧垂（m）"
+        ></el-statistic>
+      <el-form ref="form1" :model="form1" label-width="180px">
+        <el-form-item label="耐张段">
+          <el-input v-model="form1.nzd"></el-input>
+        </el-form-item>
+        <el-form-item label="观测档">
+          <el-input v-model="form1.gcd"></el-input>
+        </el-form-item>
+        <el-form-item label="观测档档距（m）">
+          <el-input v-model="form1.gcddj"></el-input>
+        </el-form-item>
+        <el-form-item label="观测档代表档距（m）">
+          <el-input v-model="form1.gcddbdj"></el-input>
+        </el-form-item>
+        <el-form-item label="温度" prop="wd">
+          <el-select v-model="form1.wd" placeholder="请选择测量温度">
+            <el-option label="-20" value="-20"></el-option>
+            <el-option label="-15" value="-15"></el-option>
+            <el-option label="-10" value="-10"></el-option>
+            <el-option label="-5" value="-5"></el-option>
+            <el-option label="0" value="0"></el-option>
+            <el-option label="5" value="5"></el-option>
+            <el-option label="10" value="10"></el-option>
+            <el-option label="15" value="15"></el-option>
+            <el-option label="20" value="20"></el-option>
+            <el-option label="25" value="25"></el-option>
+            <el-option label="30" value="30"></el-option>
+            <el-option label="35" value="35"></el-option>
+            <el-option label="40" value="40"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="观测档悬点高差角（°）">
+          <el-input-number v-model="form1.gcjd" :min="0" :max="90" label=""></el-input-number>
+          <el-input-number v-model="form1.gcjf" :min="0" :max="60" label=""></el-input-number>
+          <el-input-number v-model="form1.gcjm" :min="0" :max="60" label=""></el-input-number>
+        </el-form-item>
+
+        <el-form-item>
+        <div style="text-align: center">
+          <el-button type="primary" @click="computeDesign">计算设计弧垂</el-button>
+          <!-- <el-button @click="resetForm('ruleForm')">重置</el-button> -->
+          <el-button style="margin-top: 12px;" @click="next">下一步</el-button>
+        </div>
+        </el-form-item>
+      </el-form>
+
+    </div>
+<div v-if="active === 1">
+  <div style="text-align: center">
+  <el-image
+      style="width: 300px;"
+      src="data:image/png;base64,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"></el-image>
+    </div>
+    <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mo>弧垂公式</mo><mi>f</mi><mo>=</mo><mfrac><mrow><mo stretchy="false">(</mo><msqrt><mi>a</mi></msqrt><mo>+</mo><msqrt><mi>l</mi><mo>×</mo><mo stretchy="false">(</mo><mi>t</mi><mi>a</mi><mi>n</mi><msub><mi>θ</mi><mn>1</mn></msub><mo>−</mo><mi>t</mi><mi>a</mi><mi>n</mi><mi>θ</mi><mo stretchy="false">)</mo></msqrt><msup><mo stretchy="false">)</mo><mn>2</mn></msup></mrow><mn>4</mn></mfrac></math>
+    <el-row :gutter="20" style="padding-top:20px">
+      <el-col :span="4">
+        <el-statistic
+              group-separator=""
+              :precision="3"
+              :value="hc.schca"
+              title="上相实测弧垂（m）"
+          ></el-statistic>
+      </el-col>
+      <el-col :span="4">
+      <el-statistic
+            group-separator=""
+            :precision="3"
+            :value="hc.zghca"
+            title="上相最高温换算弧垂（m）"
+        ></el-statistic>
+      </el-col>
+      <el-col :span="4">
+      <el-statistic
+            group-separator=""
+            :precision="3"
+            :value="hc.schcb"
+            title="中相实测弧垂（m）"
+        ></el-statistic>
+      </el-col>
+      <el-col :span="4">
+      <el-statistic
+            group-separator=""
+            :precision="3"
+            :value="hc.zghcb"
+            title="中相最高温换算弧垂（m）"
+        ></el-statistic>
+      </el-col>
+      <el-col :span="4">
+      <el-statistic
+            group-separator=""
+            :precision="3"
+            :value="hc.schcc"
+            title="下相实测弧垂（m）"
+        ></el-statistic>
+      </el-col>
+      <el-col :span="4">
+      <el-statistic
+            group-separator=""
+            :precision="3"
+            :value="hc.zghcc"
+            title="下相最高温换算弧垂（m）"
+        ></el-statistic>
+      </el-col>
+      </el-row>
+      <div style="text-align: center">
+        <el-tabs v-model="activeName">
+          <el-tab-pane label="上相" name="a">上相</el-tab-pane>
+          <el-tab-pane label="中相" name="b">中相</el-tab-pane>
+          <el-tab-pane label="下相" name="c">下相</el-tab-pane>
+        </el-tabs>
+      </div>
+      <div v-if="activeName === 'a'">
+        <el-form ref="form2" :model="form2" label-width="180px">
+          <el-form-item label="第一次仪器高度(m)">
+            <el-input v-model="form2.a.yg1"></el-input>
+          </el-form-item>
+          <el-form-item label="A点视距丝上丝(cm)">
+            <el-input v-model="form2.a.ssa"></el-input>
+          </el-form-item>
+          <el-form-item label="A点视距丝下丝(cm)">
+            <el-input v-model="form2.a.xsa"></el-input>
+          </el-form-item>
+          <el-form-item label="A点仰角">
+          <el-input-number v-model="form2.a.yjad" :min="0" :max="90" label=""></el-input-number>
+          <el-input-number v-model="form2.a.yjaf" :min="0" :max="60" label=""></el-input-number>
+          <el-input-number v-model="form2.a.yjam" :min="0" :max="60" label=""></el-input-number>
+          </el-form-item>
+          <el-form-item label="第二次仪器高度">
+            <el-input v-model="form2.a.yg2"></el-input>
+          </el-form-item>
+          <el-form-item label="B点仰角">
+            <el-input-number v-model="form2.a.yjbd" :min="0" :max="90" label=""></el-input-number>
+            <el-input-number v-model="form2.a.yjbf" :min="0" :max="60" label=""></el-input-number>
+            <el-input-number v-model="form2.a.yjbm" :min="0" :max="60" label=""></el-input-number>
+          </el-form-item>
+          <el-form-item label="切点仰角">
+            <el-input-number v-model="form2.a.yjqd" :min="0" :max="90" label=""></el-input-number>
+            <el-input-number v-model="form2.a.yjqf" :min="0" :max="60" label=""></el-input-number>
+            <el-input-number v-model="form2.a.yjqm" :min="0" :max="60" label=""></el-input-number>
+          </el-form-item>
+          <div style="text-align: center">
+            <el-button type="primary" @click="computeSC">计算实测弧垂</el-button>
+            <el-button style="margin-top: 12px;" @click="prev">上一步</el-button>
+            <el-button style="margin-top: 12px;" @click="activeName = 'b'">下一相</el-button>
+          </div>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <div v-if="activeName === 'b'">
+        <el-form ref="form2" :model="form2" label-width="180px">
+          <el-form-item label="第一次仪器高度(m)">
+            <el-input v-model="form2.b.yg1"></el-input>
+          </el-form-item>
+          <el-form-item label="A点视距丝上丝(cm)">
+            <el-input v-model="form2.b.ssa"></el-input>
+          </el-form-item>
+          <el-form-item label="A点视距丝下丝(cm)">
+            <el-input v-model="form2.b.xsa"></el-input>
+          </el-form-item>
+          <el-form-item label="A点仰角">
+          <el-input-number v-model="form2.b.yjad" :min="0" :max="90" label=""></el-input-number>
+          <el-input-number v-model="form2.b.yjaf" :min="0" :max="60" label=""></el-input-number>
+          <el-input-number v-model="form2.b.yjam" :min="0" :max="60" label=""></el-input-number>
+          </el-form-item>
+          <el-form-item label="第二次仪器高度">
+            <el-input v-model="form2.b.yg2"></el-input>
+          </el-form-item>
+          <el-form-item label="B点仰角">
+            <el-input-number v-model="form2.b.yjbd" :min="0" :max="90" label=""></el-input-number>
+            <el-input-number v-model="form2.b.yjbf" :min="0" :max="60" label=""></el-input-number>
+            <el-input-number v-model="form2.b.yjbm" :min="0" :max="60" label=""></el-input-number>
+          </el-form-item>
+          <el-form-item label="切点仰角">
+            <el-input-number v-model="form2.b.yjqd" :min="0" :max="90" label=""></el-input-number>
+            <el-input-number v-model="form2.b.yjqf" :min="0" :max="60" label=""></el-input-number>
+            <el-input-number v-model="form2.b.yjqm" :min="0" :max="60" label=""></el-input-number>
+          </el-form-item>
+          <div style="text-align: center">
+            <el-button type="primary" @click="computeSC">计算实测弧垂</el-button>
+            <el-button style="margin-top: 12px;" @click="activeName = 'a'">上一相</el-button>
+            <el-button style="margin-top: 12px;" @click="activeName = 'c'">下一相</el-button>
+          </div>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <div v-if="activeName === 'c'">
+        <el-form ref="form2" :model="form2" label-width="180px">
+          <el-form-item label="第一次仪器高度(m)">
+            <el-input v-model="form2.c.yg1"></el-input>
+          </el-form-item>
+          <el-form-item label="A点视距丝上丝(cm)">
+            <el-input v-model="form2.c.ssa"></el-input>
+          </el-form-item>
+          <el-form-item label="A点视距丝下丝(cm)">
+            <el-input v-model="form2.c.xsa"></el-input>
+          </el-form-item>
+          <el-form-item label="A点仰角">
+          <el-input-number v-model="form2.c.yjad" :min="0" :max="90" label=""></el-input-number>
+          <el-input-number v-model="form2.c.yjaf" :min="0" :max="60" label=""></el-input-number>
+          <el-input-number v-model="form2.c.yjam" :min="0" :max="60" label=""></el-input-number>
+          </el-form-item>
+          <el-form-item label="第二次仪器高度">
+            <el-input v-model="form2.c.yg2"></el-input>
+          </el-form-item>
+          <el-form-item label="B点仰角">
+            <el-input-number v-model="form2.c.yjbd" :min="0" :max="90" label=""></el-input-number>
+            <el-input-number v-model="form2.c.yjbf" :min="0" :max="60" label=""></el-input-number>
+            <el-input-number v-model="form2.c.yjbm" :min="0" :max="60" label=""></el-input-number>
+          </el-form-item>
+          <el-form-item label="切点仰角">
+            <el-input-number v-model="form2.c.yjqd" :min="0" :max="90" label=""></el-input-number>
+            <el-input-number v-model="form2.c.yjqf" :min="0" :max="60" label=""></el-input-number>
+            <el-input-number v-model="form2.c.yjqm" :min="0" :max="60" label=""></el-input-number>
+          </el-form-item>
+          <div style="text-align: center">
+            <el-button type="primary" @click="computeSC">计算实测弧垂</el-button>
+            <el-button style="margin-top: 12px;" @click="activeName = 'b'">上一相</el-button>
+            <el-button style="margin-top: 12px;" @click="next">下一步</el-button>
+          </div>
+          </el-form-item>
+        </el-form>
+      </div>
+    </div>
+    <div v-if="active === 2">
+      <div style="text-align: center">
+        <h1>盱眙～秋藤双回500kV线路工程弧垂验收报告</h1>
+        <div style="color: #606266">
+        <el-row>
+          <el-col :offset="8" :span="4"> <h2>耐张段：{{form1.nzd}}</h2> </el-col>
+          <el-col :span="4"> <h2>观测档：{{form1.gcd}}</h2> </el-col>
+        </el-row>
+        <h3>设计弧垂：{{designHC.toFixed(3)}}m</h3>
+        <el-row>
+          <el-col :offset="6" :span="4">
+            <h3>上相测量弧垂：{{hc.schca.toFixed(3)}}m</h3>
+          </el-col>
+          <el-col :span="4">
+            <h3>中相测量弧垂：{{hc.schcb.toFixed(3)}}m</h3>
+          </el-col>
+          <el-col :span="4">
+            <h3>下相测量弧垂：{{hc.schcc.toFixed(3)}}m</h3>
+          </el-col>
+        </el-row>
+        <h3>弧垂偏差比例:{{(hcpc*100).toFixed(3)}}%</h3>
+        <h3>相间弧垂误差值:{{xjwc.toFixed(3)}}m</h3>
+        <div v-if="rs">
+          <el-result icon="success" title="验收合格"></el-result>
+        </div>
+        <div v-else>
+          <el-result icon="error" title="验收不合格" subTitle="请根据提示进行操作"></el-result>
+          <h4>不合格原因：{{rsErr}}</h4>
+        </div>
+
+        </div>
+        <el-button style="margin-top: 12px;" @click="prev">上一步</el-button>
+      </div>
+    </div>
+  </div>
+</body>
+  <script>
+    new Vue({
+      el: '#app',
+      data() {
+      return {
+        rs: true,
+        rsErr: '',
+        hcpc: 0,
+        xjwc: 0,
+        active: 0,
+        designHC: 0,
+        activeName: 'a',
+        hc: {
+          schca: 0,
+          zghca: 0,
+          schcb: 0,
+          zghcb: 0,
+          schcc: 0,
+          zghcc: 0,
+        },
+        form1:{
+          nzd: "N143-N146",
+          gcd: "N144-N145",
+          gcddj: 442,
+          gcddbdj: 412,
+          wd: "30",
+          gcj: 0,
+          gcjd: 0,
+          gcjf: 0,
+          gcjm: 0,
+        },
+        form2:{
+          a:{
+            yg1: 1,
+            yg2: 1,
+            ssa: 60,
+            xsa: 10,
+            yja: 0,
+            yjad: 45,
+            yjaf: 0,
+            yjam: 0,
+            yjb: 0,
+            yjbd: 6,
+            yjbf: 27,
+            yjbm: 14,
+            yjq: 0,
+            yjqd: 6,
+            yjqf: 26,
+            yjqm: 51,
+          },
+          b:{
+            yg1: 1,
+            yg2: 1,
+            ssa: 60,
+            xsa: 10,
+            yja: 0,
+            yjad: 45,
+            yjaf: 0,
+            yjam: 0,
+            yjb: 0,
+            yjbd: 6,
+            yjbf: 27,
+            yjbm: 14,
+            yjq: 0,
+            yjqd: 6,
+            yjqf: 26,
+            yjqm: 51,
+          },
+          c:{
+            yg1: 1,
+            yg2: 1,
+            ssa: 60,
+            xsa: 10,
+            yja: 0,
+            yjad: 45,
+            yjaf: 0,
+            yjam: 0,
+            yjb: 0,
+            yjbd: 6,
+            yjbf: 27,
+            yjbm: 14,
+            yjq: 0,
+            yjqd: 6,
+            yjqf: 26,
+            yjqm: 51,
+          },
+          // a:{
+          //   yg1: 0,
+          //   yg2: 0,
+          //   ssa: 0,
+          //   xsa: 0,
+          //   yja: 0,
+          //   yjad: 0,
+          //   yjaf: 0,
+          //   yjam: 0,
+          //   yjb: 0,
+          //   yjbd: 0,
+          //   yjbf: 0,
+          //   yjbm: 0,
+          //   yjq: 0,
+          //   yjqd: 0,
+          //   yjqf: 0,
+          //   yjqm: 0,
+          // },
+          // b:{
+          //   yg1: 0,
+          //   yg2: 0,
+          //   ssa: 0,
+          //   xsa: 0,
+          //   yja: 0,
+          //   yjad: 0,
+          //   yjaf: 0,
+          //   yjam: 0,
+          //   yjb: 0,
+          //   yjbd: 0,
+          //   yjbf: 0,
+          //   yjbm: 0,
+          //   yjq: 0,
+          //   yjqd: 0,
+          //   yjqf: 0,
+          //   yjqm: 0,
+          // },
+          // c:{
+          //   yg1: 0,
+          //   yg2: 0,
+          //   ssa: 0,
+          //   xsa: 0,
+          //   yja: 0,
+          //   yjad: 0,
+          //   yjaf: 0,
+          //   yjam: 0,
+          //   yjb: 0,
+          //   yjbd: 0,
+          //   yjbf: 0,
+          //   yjbm: 0,
+          //   yjq: 0,
+          //   yjqd: 0,
+          //   yjqf: 0,
+          //   yjqm: 0,
+          // },
+        },
+      };
+    },
+    methods: {
+      computeDesign(){
+        f_arr = {
+          '-20': 0.33,
+          '-15': 0.34,
+          '-10': 0.37,
+          '-5': 0.39,
+          '0': 0.42,
+          '5': 0.45,
+          '10': 0.48,
+          '15': 0.52,
+          '20': 0.57,
+          '25': 0.62,
+          '30': 0.68,
+          '35': 0.74,
+          '40': 0.82,
+        }
+        f100 = f_arr[this.form1.wd]
+        let L= this.form1.gcddj
+        this.gcj = this.gcjd + this.gcjf/60 + this.gcjm/3600
+        this.designHC = f100*L*L*0.0001*(1+4/3*f100*f100*L*L*0.00000001)/Math.cos(this.form1.gcj*Math.PI/180)
+        console.log(f100*L*L*0.0001)
+        console.log(1+4/3*f100*f100*L*L*0.00000001)
+      },
+      computeSC(){
+        data = this.form2[this.activeName]
+        data.yg1 = Number(data.yg1)
+        data.yg2 = Number(data.yg2)
+        data.ssa = Number(data.ssa)
+        data.ssb = Number(data.ssb)
+        data.xsa = Number(data.xsa)
+        data.xsb = Number(data.xsb)
+        data.yja = data.yjad + data.yjaf/60 + data.yjam/3600
+        data.yjb = data.yjbd + data.yjbf/60 + data.yjbm/3600
+        data.yjq = data.yjqd + data.yjqf/60 + data.yjqm/3600
+        let A = data.yg1 + (data.ssa-data.xsa)*Math.tan(data.yja*Math.PI/180)
+        console.log(A)
+        let a = A - data.yg2
+        let l = Number(this.form1.gcddj)
+        let b = l * (Math.tan(data.yjb*Math.PI/180) - Math.tan(data.yjq*Math.PI/180))
+        if (this.activeName == 'a'){
+          this.hc.schca = (Math.sqrt(a) + Math.sqrt(b)) * (Math.sqrt(a) + Math.sqrt(b))/4
+          let f = Number(this.hc.schca)
+          let l0 = Number(this.form1.gcddbdj)
+          this.hc.zghca = Math.sqrt(f*f + 3/8*l*l*l*l/l0/l0*(80-this.form1.wd)*20.8*0.000001)
+        }
+        if (this.activeName == 'b'){
+          this.hc.schcb = (Math.sqrt(a) + Math.sqrt(b)) * (Math.sqrt(a) + Math.sqrt(b))/4
+          let f = Number(this.hc.schcb)
+          let l0 = Number(this.form1.gcddbdj)
+          this.hc.zghcb = Math.sqrt(f*f + 3/8*l*l*l*l/l0/l0*(80-this.form1.wd)*20.8*0.000001)
+        }
+        if (this.activeName == 'c'){
+          this.hc.schcc = (Math.sqrt(a) + Math.sqrt(b)) * (Math.sqrt(a) + Math.sqrt(b))/4
+          let f = Number(this.hc.schcc)
+          let l0 = Number(this.form1.gcddbdj)
+          this.hc.zghcc = Math.sqrt(f*f + 3/8*l*l*l*l/l0/l0*(80-this.form1.wd)*20.8*0.000001)
+        }
+        console.log(data)
+      },
+      prev() {
+        this.active--
+      },
+      next() {
+        if (this.active++ > 2) this.active = 0;
+        if (this.active == 2){
+          this.gResult()
+        }
+      },
+      gResult(){
+        let a = this.hc.schca
+        let b = this.hc.schcb
+        let c = this.hc.schcc
+        let dhc =  this.designHC
+        this.xjwc = Math.max(Math.abs(a-b), Math.abs(a-c), Math.abs(b-c))
+        if (this.hcpc < 0.3){
+          this.rs = true
+        }else{
+          this.rs = false
+          this.rsErr = '不满足相间相对弧垂，220kV及以上不应超过300mm'
+        }
+        this.hcpc = Math.max(Math.abs(dhc-a)/dhc, Math.abs(dhc-b)/dhc, Math.abs(dhc-c)/dhc)
+        if (this.hcpc<0.025){
+          this.rs = true
+        }else{
+          this.rs = false
+          this.rsErr = this.rsErr += '\n不满足与设计弧垂偏差值，220kV及以上应为±2.5%以内'
+        }
+
+        console.log(this.rs)
+      }
+    }
+    })
+  </script>
+</html>
